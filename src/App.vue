@@ -1,11 +1,9 @@
-<script setup>
-import FileConverter from './components/FileConvert.vue'
+<script setup lang="ts">
+import FileConvert from './components/FileConvert.vue'
 </script>
 
 <template>
-  <div>
-    <FileConverter />
-  </div>
+  <FileConvert />
 </template>
 
 <style scoped>
