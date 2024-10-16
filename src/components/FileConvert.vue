@@ -3,7 +3,7 @@
     <Card class="w-full max-w-md">
       <CardHeader>
         <CardTitle>Convertisseur de fichiers</CardTitle>
-        <CardDescription>Convertissez vos fichiers TXT/CSV/XLSX en TRA et vice versa</CardDescription>
+        <CardDescription>Convertissez vos fichiers TXT, XLSX/CSV, ou TRA</CardDescription>
       </CardHeader>
       <CardContent>
         <div class="space-y-4">
@@ -18,12 +18,13 @@
                 <SelectValue :placeholder="conversionType" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="toTra">Convertir en TRA</SelectItem>
-                <SelectItem value="fromTra">Convertir depuis TRA</SelectItem>
+                <SelectItem value="txtToXlsx">TXT vers XLSX/CSV</SelectItem>
+                <SelectItem value="xlsxToTxt">XLSX vers TXT</SelectItem>
+                <SelectItem value="xlsxToTra">XLSX vers TRA</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div v-if="conversionType === 'fromTra'" class="grid w-full max-w-sm items-center gap-1.5">
+          <div v-if="conversionType === 'txtToXlsx'" class="grid w-full max-w-sm items-center gap-1.5">
             <Label for="output-format">Format de sortie</Label>
             <Select v-model="outputFormat">
               <SelectTrigger id="output-format">
@@ -32,7 +33,6 @@
               <SelectContent>
                 <SelectItem value="xlsx">XLSX</SelectItem>
                 <SelectItem value="csv">CSV</SelectItem>
-                <SelectItem value="txt">TXT</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -59,8 +59,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const files = ref<File[]>([]);
-const outputFormat = ref<'xlsx' | 'csv' | 'txt'>('xlsx');
-const conversionType = ref<'toTra' | 'fromTra'>('toTra');
+const outputFormat = ref<'xlsx' | 'csv'>('xlsx');
+const conversionType = ref<'txtToXlsx' | 'xlsxToTxt' | 'xlsxToTra'>('txtToXlsx');
 
 const handleFileUpload = (event: Event): void => {
   const target = event.target as HTMLInputElement;
@@ -75,78 +75,77 @@ const convertFile = async (): Promise<void> => {
     return;
   }
 
-  if (conversionType.value === 'toTra') {
-    await convertToTra();
-  } else {
-    await convertFromTra();
+  if (conversionType.value === 'txtToXlsx') {
+    await convertTxtToXlsx();
+  } else if (conversionType.value === 'xlsxToTxt') {
+    await convertXlsxToTxt();
+  } else if (conversionType.value === 'xlsxToTra') {
+    await convertXlsxToTra();
   }
 };
 
-const convertToTra = async (): Promise<void> => {
+const convertTxtToXlsx = async (): Promise<void> => {
   const zip = new JSZip();
 
   for (const file of files.value) {
-    let data: any[][] = [];
-    
-    if (file.name.endsWith('.txt')) {
-      const content = await readFileContent(file);
-      data = content.split('\n').map(line => line.split('|').map(cell => cell.trim()));
-    } else {
-      const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-    }
+    const content = await readFileContent(file);
+    const lines = content.split('\n');
+    const data = lines.map(line => line.split('|').map(cell => cell.trim()));
 
-    const traContent = generateTraContent(data);
-    const fileName = `${file.name.split('.')[0]}.tra`;
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    XLSX.utils.book_append_sheet(wb, ws, "Feuille1");
+
+    const fileExtension = outputFormat.value;
+    const fileName = `${file.name.replace('.txt', '')}.${fileExtension}`;
+    const fileContent = XLSX.write(wb, { bookType: fileExtension, type: 'array' });
+
+    zip.file(fileName, fileContent);
+  }
+
+  const zipContent = await zip.generateAsync({ type: 'blob' });
+  saveAs(zipContent, 'fichiers_convertis.zip');
+};
+
+const convertXlsxToTxt = async (): Promise<void> => {
+  const zip = new JSZip();
+
+  for (const file of files.value) {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+
+    const textContent = data.map(row => row.join('|')).join('\n');
+    const fileName = `${file.name.replace(/\.(xlsx|xls)$/, '')}.txt`;
+
+    zip.file(fileName, textContent);
+  }
+
+  const zipContent = await zip.generateAsync({ type: 'blob' });
+  saveAs(zipContent, 'fichiers_convertis_txt.zip');
+};
+
+const convertXlsxToTra = async (): Promise<void> => {
+  const zip = new JSZip();
+
+  for (const file of files.value) {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+
+    // Convert to TRA format (this is a placeholder, adjust according to Cegid's TRA specifications)
+    const traContent = data.map(row => row.join('|')).join('\n');
+    const fileName = `${file.name.replace(/\.(xlsx|xls)$/, '')}.tra`;
+
     zip.file(fileName, traContent);
   }
 
   const zipContent = await zip.generateAsync({ type: 'blob' });
   saveAs(zipContent, 'fichiers_convertis_tra.zip');
-};
-
-const convertFromTra = async (): Promise<void> => {
-  const zip = new JSZip();
-
-  for (const file of files.value) {
-    const content = await readFileContent(file);
-    const data = parseTraContent(content);
-
-    if (outputFormat.value === 'txt') {
-      const textContent = data.map(row => row.join('|')).join('\n');
-      const fileName = `${file.name.replace('.tra', '')}.txt`;
-      zip.file(fileName, textContent);
-    } else {
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      XLSX.utils.book_append_sheet(wb, ws, "Feuille1");
-
-      const fileExtension = outputFormat.value;
-      const fileName = `${file.name.replace('.tra', '')}.${fileExtension}`;
-      const fileContent = XLSX.write(wb, { bookType: fileExtension, type: 'array' });
-      zip.file(fileName, fileContent);
-    }
-  }
-
-  const zipContent = await zip.generateAsync({ type: 'blob' });
-  saveAs(zipContent, `fichiers_convertis_${outputFormat.value}.zip`);
-};
-
-const generateTraContent = (data: any[][]): string => {
-  // Implémentez ici la logique pour générer le contenu TRA
-  // à partir des données du fichier d'entrée
-  // Ceci est un exemple simplifié, à adapter selon vos besoins spécifiques
-  return data.map(row => row.join('|')).join('\n');
-};
-
-const parseTraContent = (content: string): any[][] => {
-  // Implémentez ici la logique pour parser le contenu TRA
-  // et le convertir en structure de données utilisable
-  // Ceci est un exemple simplifié, à adapter selon vos besoins spécifiques
-  return content.split('\n').map(line => line.split('|'));
 };
 
 const readFileContent = (file: File): Promise<string> => {
