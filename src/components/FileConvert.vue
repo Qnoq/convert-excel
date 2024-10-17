@@ -13,7 +13,13 @@
           </div>
           <div class="grid w-full max-w-sm items-center gap-1.5">
             <Label for="fiscal-year">Année fiscale</Label>
-            <Input id="fiscal-year" v-model="fiscalYear" type="number" placeholder="Ex: 2023" />
+            <Input 
+              id="fiscal-year" 
+              v-model="fiscalYear" 
+              type="number" 
+              placeholder="Ex: 2023"
+              @input="handleFiscalYearInput"
+            />
           </div>
         </div>
       </CardContent>
@@ -35,7 +41,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 const file = ref<File | null>(null);
-const fiscalYear = ref<number | null>(null);
+const fiscalYear = ref<string>('');
 
 const handleFileUpload = (event: Event): void => {
   const target = event.target as HTMLInputElement;
@@ -44,20 +50,31 @@ const handleFileUpload = (event: Event): void => {
   }
 };
 
+const handleFiscalYearInput = (event: Event): void => {
+  const target = event.target as HTMLInputElement;
+  fiscalYear.value = target.value;
+};
+
 const processFile = async (): Promise<void> => {
   if (!file.value || !fiscalYear.value) {
     alert('Veuillez sélectionner un fichier et spécifier l\'année fiscale');
     return;
   }
 
+  const fiscalYearNumber = parseInt(fiscalYear.value, 10);
+  if (isNaN(fiscalYearNumber)) {
+    alert('Veuillez entrer une année fiscale valide');
+    return;
+  }
+
   const content = await readFileContent(file.value);
   const lines = content.split('\n');
   const header = lines[0];
-  const adjustedLines = lines.slice(1).map(line => adjustLine(line, fiscalYear.value!));
+  const adjustedLines = lines.slice(1).map(line => adjustLine(line, fiscalYearNumber));
 
   const adjustedContent = [header, ...adjustedLines].join('\n');
   const blob = new Blob([adjustedContent], { type: 'text/plain;charset=utf-8' });
-  saveAs(blob, `${file.value.name.replace('.fec', '')}_adjusted`);
+  saveAs(blob, `${file.value.name.replace('.fec', '')}_adjusted.fec`);
 };
 
 const adjustLine = (line: string, fiscalYear: number): string => {
