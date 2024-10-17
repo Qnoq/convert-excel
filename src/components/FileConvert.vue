@@ -26,7 +26,13 @@
           </div>
           <div class="grid w-full max-w-sm items-center gap-1.5">
             <Label for="fiscal-year">Année fiscale de début</Label>
-            <Input id="fiscal-year" v-model="fiscalYear" type="number" placeholder="Ex: 2023" />
+            <Input 
+              id="fiscal-year" 
+              v-model="fiscalYear" 
+              type="number" 
+              placeholder="Ex: 2023"
+              @input="handleFiscalYearInput"
+            />
           </div>
         </div>
       </CardContent>
@@ -50,7 +56,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const file = ref<File | null>(null);
 const selectedPeriod = ref<string>('');
-const fiscalYear = ref<number | null>(null);
+const fiscalYear = ref<string>('');
 
 const fiscalPeriods = {
   tds: { start: '0401', end: '0331' },
@@ -63,6 +69,11 @@ const handleFileUpload = (event: Event): void => {
   if (target.files && target.files.length > 0) {
     file.value = target.files[0];
   }
+};
+
+const handleFiscalYearInput = (event: Event): void => {
+  const target = event.target as HTMLInputElement;
+  fiscalYear.value = target.value;
 };
 
 const processFile = async (): Promise<void> => {
@@ -94,8 +105,11 @@ const adjustLine = (line: string): string => {
 const adjustDate = (dateStr: string): string => {
   if (!fiscalYear.value) return dateStr;
 
+  const year = parseInt(fiscalYear.value, 10);
+  if (isNaN(year)) return dateStr;
+
   const { start, end } = fiscalPeriods[selectedPeriod.value as keyof typeof fiscalPeriods];
-  const startYear = fiscalYear.value;
+  const startYear = year;
   const endYear = start <= end ? startYear : startYear + 1;
 
   const fiscalStart = `${startYear}${start}`;
