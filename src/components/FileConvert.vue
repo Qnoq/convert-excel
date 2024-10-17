@@ -74,7 +74,7 @@ const processFile = async (): Promise<void> => {
 
   const adjustedContent = [header, ...adjustedLines].join('\n');
   const blob = new Blob([adjustedContent], { type: 'text/plain;charset=utf-8' });
-  saveAs(blob, `${file.value.name.replace('.fec', '')}_adjusted.fec`);
+  saveAs(blob, `${file.value.name.replace('.fec', '')}_adjusted`);
 };
 
 const adjustLine = (line: string, fiscalYear: number): string => {
